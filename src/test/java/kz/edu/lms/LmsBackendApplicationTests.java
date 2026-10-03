@@ -1,7 +1,7 @@
 package kz.edu.lms;
 
-import kz.edu.lms.entity.Course; // Укажите ваш правильный пакет сущностей
-import kz.edu.lms.repository.CourseRepository; // Укажите ваш пакет репозиториев
+import kz.edu.lms.entity.Course;
+import kz.edu.lms.repository.CourseRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,10 +26,8 @@ class LmsBackendApplicationTests {
 
         Course savedCourse = courseRepository.save(course);
 
-        // Check if it's id is equal to expected
         assertThat(savedCourse.getId()).isNotNull();
 
-        // Check the course by id
         Course foundCourse = courseRepository.findById(savedCourse.getId()).orElse(null);
 
         assertThat(foundCourse).isNotNull();
