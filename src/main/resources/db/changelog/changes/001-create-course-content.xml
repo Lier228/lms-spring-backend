@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <changeSet id="001-create-course-content" author="lms">
+        <createTable tableName="courses">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_courses"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"></column>
+            <column name="created_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createTable tableName="chapter">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_chapter"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"></column>
+            <column name="sort_order" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="course_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="chapter" baseColumnNames="course_id"
+                                 referencedTableName="courses" referencedColumnNames="id"
+                                 constraintName="fk_chapter_courses" onDelete="RESTRICT"/>
+        <createIndex tableName="chapter" indexName="idx_chapter_course_id_sort_order">
+            <column name="course_id"/>
+            <column name="sort_order"/>
+        </createIndex>
+        <createTable tableName="lesson">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_lesson"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"></column>
+            <column name="content" type="TEXT"></column>
+            <column name="sort_order" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="chapter_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_time" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="lesson" baseColumnNames="chapter_id"
+                                 referencedTableName="chapter" referencedColumnNames="id"
+                                 constraintName="fk_lesson_chapter" onDelete="RESTRICT"/>
+        <createIndex tableName="lesson" indexName="idx_lesson_chapter_id_sort_order">
+            <column name="chapter_id"/>
+            <column name="sort_order"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="lesson"/>
+            <dropTable tableName="chapter"/>
+            <dropTable tableName="courses"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
