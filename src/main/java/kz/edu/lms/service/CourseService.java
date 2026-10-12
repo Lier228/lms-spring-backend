@@ -7,6 +7,7 @@ import kz.edu.lms.entity.Course;
 import kz.edu.lms.mapper.CourseMapper;
 import kz.edu.lms.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CourseService {
@@ -29,28 +31,31 @@ public class CourseService {
     @Transactional(readOnly = true)
     public CourseResponse getCourseById(Long id) {
         Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Course not found"
-                ));
+                .orElseThrow(() -> new IllegalArgumentException("Course not found"));
 
         return courseMapper.toResponse(course);
     }
 
     @Transactional
     public CourseResponse createCourse(CourseCreateRequest request) {
+        log.info("Creating new course");
+        log.debug("Course request: {}", request);
+
         Course course = courseMapper.toEntity(request);
 
-        return courseMapper.toResponse(courseRepository.save(course));
+        CourseResponse response = courseMapper.toResponse(courseRepository.save(course));
+        log.debug("Persisted course data: {}", response);
+        return response;
     }
 
     @Transactional
     public CourseResponse updateCourse(Long id, CourseUpdateRequest request) {
+        log.info("Updating course");
+        log.debug("Course id={}", id);
+
         Course course = courseRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Course not found"
-                        )
+                        new IllegalArgumentException("Course not found")
                 );
 
         courseMapper.updateEntity(request, course);
@@ -61,10 +66,11 @@ public class CourseService {
 
     @Transactional
     public void deleteCourse(Long id) {
+        log.info("Deleting course");
+        log.debug("Course id={}", id);
+
         Course entity = courseRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Course not found"
-                ));
+                .orElseThrow(() -> new IllegalArgumentException("Course not found"));
 
         try {
             courseRepository.delete(entity);
