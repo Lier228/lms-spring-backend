@@ -18,7 +18,12 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    mockitoAgent
+}
+
 dependencies {
+    mockitoAgent('org.mockito:mockito-core') { transitive = false }
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-liquibase'
@@ -42,4 +47,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Load Mockito at startup instead of dynamically attaching on Java 21.
+    jvmArgs += "-javaagent:${configurations.mockitoAgent.singleFile}"
 }

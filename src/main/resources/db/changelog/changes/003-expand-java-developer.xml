@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <changeSet id="003-expand-java-developer" author="lms" dbms="postgresql">
+        <comment>Add 52 original English lessons and complete the Java Developer curriculum without replacing existing lesson content.</comment>
+        <sqlFile path="003-expand-java-developer.sql" relativeToChangelogFile="true"
+                 encoding="UTF-8" splitStatements="false" stripComments="false"/>
+    </changeSet>
+</databaseChangeLog>

@@ -4,4 +4,5 @@
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
     <include file="changes/001-create-course-content.xml" relativeToChangelogFile="true"/>
     <include file="changes/002-seed-course-content.xml" relativeToChangelogFile="true"/>
+    <include file="changes/003-expand-java-developer.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
