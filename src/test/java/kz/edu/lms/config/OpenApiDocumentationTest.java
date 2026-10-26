@@ -35,9 +35,10 @@ class OpenApiDocumentationTest {
             "org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration",
             "org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration"
     })
-    @Import({CourseController.class, ChapterController.class, LessonController.class,
+    @Import({AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
             GlobalExceptionHandler.class, OpenApiConfig.class, SecurityConfig.class})
     static class TestConfig {
+        @Bean AuthService authService() { return mock(AuthService.class); }
         @Bean CourseService courseService() { return mock(CourseService.class); }
         @Bean ChapterService chapterService() { return mock(ChapterService.class); }
         @Bean LessonService lessonService() { return mock(LessonService.class); }
@@ -63,12 +64,15 @@ class OpenApiDocumentationTest {
                 Map<?, ?> responses = (Map<?, ?>) entry.getValue().get("responses");
                 assertTrue(responses.containsKey("500"));
                 assertTrue(responses.containsKey("401"));
-                assertTrue(responses.containsKey("403"));
-                String success = entry.getKey().equals("post") ? "201" : entry.getKey().equals("delete") ? "204" : "200";
+                boolean authentication = java.util.Set.of("Log in", "Refresh tokens").contains(entry.getValue().get("summary"));
+                if (!authentication) assertTrue(responses.containsKey("403"));
+                String success = entry.getKey().equals("post") && !authentication ? "201" : entry.getKey().equals("delete") ? "204" : "200";
                 assertTrue(responses.containsKey(success));
             }
         }
-        assertEquals(15, operations);
+        assertEquals(17, operations);
+        assertEquals(java.util.List.of(), paths.get("/api/auth/refresh").get("post").get("security"));
+        assertEquals(java.util.List.of(), paths.get("/api/auth/login").get("post").get("security"));
         assertEquals("bearer", JsonPath.read(response.body(), "$.components.securitySchemes.bearerAuth.scheme"));
         assertTrue(response.body().contains("bearerAuth"));
         assertTrue(paths.containsKey("/api/chapters/{chapterId}/lessons/{id}"));

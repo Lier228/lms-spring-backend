@@ -79,6 +79,38 @@ class SecurityConfigTest {
     @AfterAll
     static void stopKeysServer() { KEYS_SERVER.stop(0); }
 
+
+    @Test
+    void loginIsPublicButOtherAuthRoutesAreNot() throws Exception {
+        String base = "http://localhost:" + environment.getProperty("local.server.port");
+        var client = HttpClient.newHttpClient();
+        var login = HttpRequest.newBuilder(URI.create(base + "/api/auth/login"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"username\":\"student\",\"password\":\"password\"}")).build();
+        assertEquals(200, client.send(login, HttpResponse.BodyHandlers.ofString()).statusCode());
+        var invalid = HttpRequest.newBuilder(URI.create(base + "/api/auth/login"))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{}")).build();
+        assertEquals(400, client.send(invalid, HttpResponse.BodyHandlers.ofString()).statusCode());
+        for (String path : java.util.List.of("/api/auth/login", "/api/auth/other")) {
+            assertEquals(401, client.send(HttpRequest.newBuilder(URI.create(base + path)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString()).statusCode());
+        }
+    }
+
+
+    @Test
+    void refreshIsPublicWithoutAccessToken() throws Exception {
+        String base = "http://localhost:" + environment.getProperty("local.server.port");
+        var client = HttpClient.newHttpClient();
+        var request = HttpRequest.newBuilder(URI.create(base + "/api/auth/refresh"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("{\"refreshToken\":\"refresh\"}")).build();
+        assertEquals(200, client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+        var invalid = HttpRequest.newBuilder(URI.create(base + "/api/auth/refresh"))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString("{}")).build();
+        assertEquals(400, client.send(invalid, HttpResponse.BodyHandlers.ofString()).statusCode());
+    }
+
     static Stream<Arguments> endpoints() {
         return Stream.of("/api/courses", "/api/courses/1/chapters", "/api/chapters/1/lessons")
                 .flatMap(base -> Stream.of(

@@ -34,6 +34,37 @@ docker compose up -d --build app
 
 For IDE startup, keep PostgreSQL and Keycloak running, set `SPRING_DOCKER_COMPOSE_ENABLED=false`, and run the application normally.
 
+## Login through the backend
+
+Send **POST** `http://localhost:8081/api/auth/login` with **No Auth** and **Body > raw > JSON** (use port 8080 if running with the default port):
+
+```json
+{
+  "username": "lms-admin",
+  "password": "admin123"
+}
+```
+
+Response (`200 OK`):
+
+```json
+{
+  "accessToken": "<JWT>",
+  "refreshToken": "<refresh token>",
+  "expiresIn": 300,
+  "refreshExpiresIn": 604800,
+  "tokenType": "Bearer"
+}
+```
+
+Use `accessToken` as the Bearer token for API requests. Blank fields return 400; incorrect credentials return 401; Keycloak connection or response failures return 502. Passwords and tokens are not logged by the authentication service. Users and roles remain in Keycloak.
+
+The realm uses a 5-minute access token lifetime and 168-hour SSO/client session idle and maximum lifetimes. Refresh tokens are bounded by the session maximum; a token obtained later through refresh has the remaining session lifetime.
+
+For an existing realm, configure **Realm settings > Tokens > Access Token Lifespan** to 5 minutes, and **Realm settings > Sessions**: SSO Session Idle, SSO Session Max, Client Session Idle and Client Session Max to 7 days. Leave client-specific lifetime overrides unset. The import JSON applies these values to new realms only.
+
+Inside Docker, `KEYCLOAK_TOKEN_URL` uses `http://keycloak:8080/realms/lms/protocol/openid-connect/token`. For IDE startup it defaults to localhost:8082. `KEYCLOAK_CLIENT_ID` defaults to `lms-postman`.
+
 ## Obtain tokens in Postman
 
 ### Username and password (local development)
@@ -81,17 +112,18 @@ Postman sends `Authorization: Bearer <access_token>` to the API. Use the access 
 
 ## Refresh an access token
 
-Send a POST request to `http://localhost:8082/realms/lms/protocol/openid-connect/token`.
+Send **POST** `http://localhost:8081/api/auth/refresh` (8080 with the default port).
+Select **No Auth** and **Body > raw > JSON**:
 
-Choose **No Auth** for this request and **Body > x-www-form-urlencoded**:
+```json
+{
+  "refreshToken": "<refreshToken from the login response>"
+}
+```
 
-| Field | Value |
-| --- | --- |
-| `grant_type` | `refresh_token` |
-| `client_id` | `lms-postman` |
-| `refresh_token` | The refresh token returned by Keycloak |
+The response has the same fields as login: `accessToken`, `refreshToken`, `expiresIn`, `refreshExpiresIn`, and `tokenType`. Save both returned tokens and use the new access token for API calls. An access token is not required for this request; do not send an expired Bearer token.
 
-Use the new access token from the response. If Keycloak returns a new refresh token, replace the previous one as well. Refresh tokens are sent to Keycloak, not to LMS endpoints.
+A missing or blank refresh token returns 400. An invalid or expired refresh token returns 401; sign in again. Refreshing does not extend the session beyond its 168-hour maximum.
 
 ## Permissions
 

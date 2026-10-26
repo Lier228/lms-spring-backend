@@ -28,7 +28,7 @@ The project includes CRUD operations, request validation, database migrations, A
 - Protect courses and chapters from deletion while they contain child records.
 - Track creation and update timestamps with JPA auditing.
 - Initialize the database and course content through Liquibase.
-- Explore all 15 API operations in Swagger UI.
+- Explore all 17 API operations in Swagger UI.
 
 Spring Security validates Keycloak access tokens and applies ROLE_USER, ROLE_TEACHER, and ROLE_ADMIN permissions. Keycloak runs in Docker Compose with its own PostgreSQL database.
 
@@ -126,7 +126,7 @@ At first startup, Keycloak imports `keycloak/lms-realm.json`, which creates real
 
 These accounts belong to realm `lms`. The bootstrap `admin` account manages Keycloak in realm `master`.
 
-See [authentication setup and Postman instructions](docs/authentication.md) for obtaining access and refresh tokens, calling the API, and checking permissions. Swagger UI and OpenAPI documentation remain public; API requests require an access token.
+See [authentication setup and Postman instructions](docs/authentication.md) for obtaining access and refresh tokens, calling the API, and checking permissions. POST `/api/auth/login`, POST `/api/auth/refresh`, Swagger UI, and OpenAPI documentation are public. Course, chapter, and lesson requests require an access token. Login returns a JWT valid for 5 minutes and a refresh token valid for 168 hours.
 
 ## Run locally with Java
 
@@ -151,6 +151,8 @@ All paths below are relative to the application address. Request and response sc
 
 | Method | Path | Operation |
 | --- | --- | --- |
+| POST | `/api/auth/login` | Log in with username and password |
+| POST | `/api/auth/refresh` | Refresh access and refresh tokens |
 | GET | `/api/courses/` | List courses |
 | POST | `/api/courses` | Create a course |
 | GET | `/api/courses/{id}` | Get a course |
