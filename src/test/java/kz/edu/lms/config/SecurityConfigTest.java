@@ -206,6 +206,22 @@ class SecurityConfigTest {
         assertEquals(400, response.statusCode(), response.body());
     }
 
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER", "NONE"})
+    void onlyAdminCanCreateUsersAndChooseAnyApplicationRole(String callerRole) throws Exception {
+        for (String assignedRole : List.of("ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER")) {
+            String body = """
+                    {"username":"new-user","password":"Password123!","email":"new@example.com",
+                     "firstName":"New","lastName":"User","role":"%s"}
+                    """.formatted(assignedRole);
+            String jwt = callerRole.equals("NONE") ? null : token(Map.of("roles", List.of(callerRole)));
+            int expected = callerRole.equals("NONE") ? 401 : callerRole.equals("ROLE_ADMIN") ? 201 : 403;
+            var result = request("POST", "/api/users", jwt, body);
+            assertEquals(expected, result.statusCode(), result.body());
+        }
+    }
+
     private String token(Object realmAccess) throws Exception {
         return signedToken(KEY, ISSUER, AUDIENCE, Instant.now().plusSeconds(300), realmAccess);
     }
@@ -232,4 +248,33 @@ class SecurityConfigTest {
                 ? HttpRequest.BodyPublishers.ofString(body) : HttpRequest.BodyPublishers.noBody());
         return HttpClient.newHttpClient().send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN", "NO_ROLE"})
+    void allAuthenticatedUsersCanUpdateTheirOwnProfileAndPassword(String role) throws Exception {
+        String jwt = token(Map.of("roles", role.equals("NO_ROLE") ? List.of() : List.of(role)));
+        String profile = "{\"email\":\"updated@example.com\",\"firstName\":\"Updated\",\"lastName\":\"User\"}";
+        assertEquals(204, request("PUT", "/api/users/me", jwt, profile).statusCode());
+        assertEquals(204, request("PUT", "/api/users/me/password", jwt, "{\"newPassword\":\"NewPassword123!\"}").statusCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN", "NONE"})
+    void onlyAdminCanChangeExistingUserRoles(String role) throws Exception {
+        String jwt = role.equals("NONE") ? null : token(Map.of("roles", List.of(role)));
+        int expected = role.equals("NONE") ? 401 : role.equals("ROLE_ADMIN") ? 204 : 403;
+        for (String target : List.of("test-user-id", "another-user-id")) {
+            var response = request("PUT", "/api/users/" + target + "/role", jwt, "{\"role\":\"ROLE_ADMIN\"}");
+            assertEquals(expected, response.statusCode(), response.body());
+        }
+    }
+
+    @Test
+    void selfUpdatesRequireAuthenticationAndDoNotOpenOtherUserRoutes() throws Exception {
+        assertEquals(401, request("PUT", "/api/users/me", null, "{}").statusCode());
+        assertEquals(401, request("PUT", "/api/users/me/password", null, "{}").statusCode());
+        String jwt = token(Map.of("roles", List.of("ROLE_USER")));
+        assertEquals(403, request("PUT", "/api/users/another-user-id", jwt, "{}").statusCode());
+        assertEquals(403, request("PUT", "/api/users/another-user-id/password", jwt, "{}").statusCode());
+    }
+
 }

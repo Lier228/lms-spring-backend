@@ -6,6 +6,7 @@ import kz.edu.lms.dto.auth.RefreshTokenRequest;
 import kz.edu.lms.dto.auth.TokenResponse;
 import kz.edu.lms.mapper.AuthMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class AuthService {
     private final AuthMapper authMapper;
     private final String clientId;
 
-    public AuthService(RestClient keycloakRestClient, AuthMapper authMapper,
+    public AuthService(@Qualifier("keycloakRestClient") RestClient keycloakRestClient, AuthMapper authMapper,
                        @Value("${keycloak.client-id}") String clientId) {
         this.keycloakRestClient = keycloakRestClient;
         this.authMapper = authMapper;

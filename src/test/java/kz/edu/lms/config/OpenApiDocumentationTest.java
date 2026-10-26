@@ -35,9 +35,10 @@ class OpenApiDocumentationTest {
             "org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration",
             "org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration"
     })
-    @Import({AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
+    @Import({UserController.class, AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
             GlobalExceptionHandler.class, OpenApiConfig.class, SecurityConfig.class})
     static class TestConfig {
+        @Bean UserService userService() { return mock(UserService.class); }
         @Bean AuthService authService() { return mock(AuthService.class); }
         @Bean CourseService courseService() { return mock(CourseService.class); }
         @Bean ChapterService chapterService() { return mock(ChapterService.class); }
@@ -67,10 +68,12 @@ class OpenApiDocumentationTest {
                 boolean authentication = java.util.Set.of("Log in", "Refresh tokens").contains(entry.getValue().get("summary"));
                 if (!authentication) assertTrue(responses.containsKey("403"));
                 String success = entry.getKey().equals("post") && !authentication ? "201" : entry.getKey().equals("delete") ? "204" : "200";
+                if (java.util.Set.of("Update my profile", "Update my password", "Update user role").contains(entry.getValue().get("summary"))) success = "204";
                 assertTrue(responses.containsKey(success));
             }
         }
-        assertEquals(17, operations);
+        assertEquals(21, operations);
+        assertTrue(paths.containsKey("/api/users"));
         assertEquals(java.util.List.of(), paths.get("/api/auth/refresh").get("post").get("security"));
         assertEquals(java.util.List.of(), paths.get("/api/auth/login").get("post").get("security"));
         assertEquals("bearer", JsonPath.read(response.body(), "$.components.securitySchemes.bearerAuth.scheme"));

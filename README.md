@@ -28,9 +28,11 @@ The project includes CRUD operations, request validation, database migrations, A
 - Protect courses and chapters from deletion while they contain child records.
 - Track creation and update timestamps with JPA auditing.
 - Initialize the database and course content through Liquibase.
-- Explore all 17 API operations in Swagger UI.
+- Explore all 21 API operations in Swagger UI.
 
 Spring Security validates Keycloak access tokens and applies ROLE_USER, ROLE_TEACHER, and ROLE_ADMIN permissions. Keycloak runs in Docker Compose with its own PostgreSQL database.
+
+Registration is available only to ROLE_ADMIN through `POST /api/users`. See [LT13 registration setup](docs/registration.md).
 
 ## Run with Docker Compose
 
@@ -153,6 +155,10 @@ All paths below are relative to the application address. Request and response sc
 | --- | --- | --- |
 | POST | `/api/auth/login` | Log in with username and password |
 | POST | `/api/auth/refresh` | Refresh access and refresh tokens |
+| POST | `/api/users` | Create a user and assign a role (ROLE_ADMIN only) |
+| PUT | `/api/users/me` | Update my profile |
+| PUT | `/api/users/me/password` | Update my password |
+| PUT | `/api/users/{id}/role` | Change an application role (ROLE_ADMIN only) |
 | GET | `/api/courses/` | List courses |
 | POST | `/api/courses` | Create a course |
 | GET | `/api/courses/{id}` | Get a course |

@@ -15,4 +15,12 @@ public class KeycloakConfig {
         factory.setReadTimeout(5000);
         return RestClient.builder().baseUrl(tokenUrl).requestFactory(factory).build();
     }
+
+    @Bean
+    public RestClient keycloakAdminRestClient(@Value("${keycloak.admin-url}") String adminUrl) {
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(5000);
+        return RestClient.builder().baseUrl(adminUrl).requestFactory(factory).build();
+    }
 }
