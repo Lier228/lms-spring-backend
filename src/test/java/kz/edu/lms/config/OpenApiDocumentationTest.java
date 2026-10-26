@@ -36,7 +36,7 @@ class OpenApiDocumentationTest {
             "org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration"
     })
     @Import({CourseController.class, ChapterController.class, LessonController.class,
-            GlobalExceptionHandler.class, OpenApiConfig.class})
+            GlobalExceptionHandler.class, OpenApiConfig.class, SecurityConfig.class})
     static class TestConfig {
         @Bean CourseService courseService() { return mock(CourseService.class); }
         @Bean ChapterService chapterService() { return mock(ChapterService.class); }
@@ -62,11 +62,15 @@ class OpenApiDocumentationTest {
                 assertNotNull(entry.getValue().get("summary"));
                 Map<?, ?> responses = (Map<?, ?>) entry.getValue().get("responses");
                 assertTrue(responses.containsKey("500"));
+                assertTrue(responses.containsKey("401"));
+                assertTrue(responses.containsKey("403"));
                 String success = entry.getKey().equals("post") ? "201" : entry.getKey().equals("delete") ? "204" : "200";
                 assertTrue(responses.containsKey(success));
             }
         }
         assertEquals(15, operations);
+        assertEquals("bearer", JsonPath.read(response.body(), "$.components.securitySchemes.bearerAuth.scheme"));
+        assertTrue(response.body().contains("bearerAuth"));
         assertTrue(paths.containsKey("/api/chapters/{chapterId}/lessons/{id}"));
         assertTrue(response.body().contains("#/components/schemas/ApiError"));
         assertTrue(response.body().contains("sortOrder"));

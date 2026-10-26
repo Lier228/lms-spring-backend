@@ -30,7 +30,7 @@ The project includes CRUD operations, request validation, database migrations, A
 - Initialize the database and course content through Liquibase.
 - Explore all 15 API operations in Swagger UI.
 
-Authentication and authorization are not implemented yet. Keycloak integration is planned.
+Spring Security validates Keycloak access tokens and applies ROLE_USER, ROLE_TEACHER, and ROLE_ADMIN permissions. Keycloak runs in Docker Compose with its own PostgreSQL database.
 
 ## Run with Docker Compose
 
@@ -59,6 +59,7 @@ docker compose up -d --no-build
 | OpenAPI JSON | [localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) |
 | Courses | [localhost:8080/api/courses/](http://localhost:8080/api/courses/) |
 | PostgreSQL from the host | `localhost:5433` |
+| Keycloak Admin Console | [localhost:8082/admin/](http://localhost:8082/admin/) |
 
 If port `8080` is occupied, select a different host port before starting Compose:
 
@@ -91,7 +92,41 @@ docker compose stop
 docker compose start
 ```
 
-The current Compose setup uses the PostgreSQL image's anonymous volume. Keeping the containers with `stop` preserves their volume association. After removing and recreating the database container, Compose may attach a new anonymous volume. Back up existing data before changing database storage or removing containers and volumes.
+The LMS PostgreSQL service uses the image's anonymous volume. Keeping the containers with `stop` preserves their volume association. After removing and recreating the database container, Compose may attach a new anonymous volume. Back up existing data before changing database storage or removing containers and volumes.
+
+## Keycloak and API security
+
+Compose includes Keycloak 26.8.1 and a separate PostgreSQL 17 service named `keycloak-db`. Start them from the project root:
+
+```powershell
+docker compose up -d keycloak
+docker compose logs -f keycloak
+```
+
+Open [the Admin Console](http://localhost:8082/admin/) and sign in with username `admin` and password `admin`. These are local development defaults; Keycloak runs in `start-dev` mode and its port is bound to localhost.
+
+Optional shell or `.env` variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `KEYCLOAK_PORT` | `8082` | Keycloak port on the host |
+| `KEYCLOAK_ADMIN` | `admin` | Initial administrator username |
+| `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Initial administrator password |
+| `KEYCLOAK_DB_PASSWORD` | `keycloak` | Password shared by Keycloak and its database |
+
+Keycloak waits for its database health check and connects to `keycloak-db:5432` over a private Docker network. The backend does not share that network, and the Keycloak database has no published port. Database data is stored in the named volume `keycloak-data`, which Compose prefixes with the project name. Keep this volume to preserve users and settings when recreating containers. Changing initialization variables does not reset an existing administrator or database password.
+
+At first startup, Keycloak imports `keycloak/lms-realm.json`, which creates realm `lms` and the `lms-postman` client. Apply `keycloak/insert.sql` to create the three roles and local development accounts; see [the LT10 SQL setup guide](docs/keycloak-sql.md). An existing `lms` realm is left unchanged by startup import.
+
+| Role | Permissions | Demo login | Demo password |
+| --- | --- | --- | --- |
+| `ROLE_USER` | Read courses, chapters, and lessons | `student` | `student123` |
+| `ROLE_TEACHER` | Read, create, and update | `teacher` | `teacher123` |
+| `ROLE_ADMIN` | Read, create, update, and delete | `lms-admin` | `admin123` |
+
+These accounts belong to realm `lms`. The bootstrap `admin` account manages Keycloak in realm `master`.
+
+See [authentication setup and Postman instructions](docs/authentication.md) for obtaining access and refresh tokens, calling the API, and checking permissions. Swagger UI and OpenAPI documentation remain public; API requests require an access token.
 
 ## Run locally with Java
 
@@ -184,6 +219,8 @@ Errors handled by the controller advice use this structure:
 | Status | Meaning |
 | --- | --- |
 | `400 Bad Request` | Invalid request data or parameters |
+| `401 Unauthorized` | Missing, invalid, or expired access token |
+| `403 Forbidden` | The authenticated user lacks the required role |
 | `404 Not Found` | Resource is missing or does not belong to the specified parent |
 | `409 Conflict` | Course still has chapters, or chapter still has lessons |
 | `500 Internal Server Error` | Unexpected server failure |
@@ -203,10 +240,10 @@ Liquibase changesets live in `src/main/resources/db/changelog`. Migration `003` 
 Run service, controller, error-handler, and OpenAPI tests without a database:
 
 ```powershell
-.\gradlew.bat test --tests "*ServiceTest" --tests "*ControllerTest" --tests "*GlobalExceptionHandlerTest" --tests "*OpenApiDocumentationTest"
+.\gradlew.bat test --tests "*ServiceTest" --tests "*ControllerTest" --tests "*GlobalExceptionHandlerTest" --tests "*OpenApiDocumentationTest" --tests "*SecurityConfigTest"
 ```
 
-Service tests use mocked repositories and real MapStruct mappers. Controller tests use MockMvc with mocked services to check requests, validation, responses, and errors.
+Security tests use signed JWTs and a local public-key endpoint to check token validation and role permissions on every API endpoint. Service tests use mocked repositories and real MapStruct mappers. Controller tests use MockMvc with mocked services to check requests, validation, responses, and errors.
 
 The full `test` task also includes `LmsBackendApplicationTests`, which connects to PostgreSQL and saves a course without rolling it back. Use a separate test database and set the datasource environment variables before running:
 
@@ -236,7 +273,7 @@ docker compose build app
 docker compose push app
 ```
 
-On another computer, copy `compose.yaml`, set `APP_IMAGE` to the published image, and run from the directory containing the Compose file:
+On another computer, copy `compose.yaml` and the `keycloak` directory, set `APP_IMAGE` to the published image, and run from the directory containing the Compose file:
 
 ```powershell
 $env:APP_IMAGE = "YOUR_DOCKERHUB_USERNAME/lms-backend:1.0.0"
@@ -250,7 +287,7 @@ The image contains the application and migrations. Database contents are stored 
 
 ```text
 src/main/java/kz/edu/lms/
-  config/       OpenAPI configuration
+  config/       Security and OpenAPI configuration
   controller/   REST endpoints
   dto/          Request and response models
   entity/       JPA entities and audit fields
@@ -262,7 +299,8 @@ src/main/resources/
   application.properties
   db/changelog/ Liquibase schema and data migrations
 src/test/java/  Service, controller, API, and database tests
-docs/          Curriculum documentation
+docs/          Curriculum and authentication documentation
+keycloak/      Local realm configuration
 Dockerfile
 compose.yaml
 ```
