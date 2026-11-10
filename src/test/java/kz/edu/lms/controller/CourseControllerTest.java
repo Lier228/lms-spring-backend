@@ -49,7 +49,7 @@ class CourseControllerTest {
     void listsWithRequestedPagination() throws Exception {
         when(service.getAllCourses(any(Pageable.class))).thenAnswer(invocation ->
                 new PageImpl<>(List.of(response), invocation.getArgument(0), 11));
-        mvc.perform(get("/api/courses/").param("page", "1").param("size", "10").param("sort", "name,desc"))
+        mvc.perform(get("/course").param("page", "1").param("size", "10").param("sort", "name,desc"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(1))
                 .andExpect(jsonPath("$.totalElements").value(11));
         verify(service).getAllCourses(eq(PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "name"))));
@@ -58,7 +58,7 @@ class CourseControllerTest {
     @Test
     void getsRecordUsingPathIds() throws Exception {
         when(service.getCourseById(1L)).thenReturn(response);
-        mvc.perform(get("/api/courses/1")).andExpect(status().isOk())
+        mvc.perform(get("/course/1")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("New name"));
         verify(service).getCourseById(1L);
     }
@@ -67,7 +67,7 @@ class CourseControllerTest {
     void createsAndReturns201() throws Exception {
         var request = new CourseCreateRequest("New name", "Description");
         when(service.createCourse(request)).thenReturn(response);
-        mvc.perform(post("/api/courses").contentType(MediaType.APPLICATION_JSON).content(BODY))
+        mvc.perform(post("/course").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(1));
         verify(service).createCourse(request);
     }
@@ -76,21 +76,21 @@ class CourseControllerTest {
     void updatesAndReturns200() throws Exception {
         var request = new CourseUpdateRequest("New name", "Description");
         when(service.updateCourse(1L, request)).thenReturn(response);
-        mvc.perform(put("/api/courses/1").contentType(MediaType.APPLICATION_JSON).content(BODY))
+        mvc.perform(put("/course/1").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("New name"));
         verify(service).updateCourse(1L, request);
     }
 
     @Test
     void deletesAndReturnsEmpty204() throws Exception {
-        mvc.perform(delete("/api/courses/1")).andExpect(status().isNoContent()).andExpect(content().string(""));
+        mvc.perform(delete("/course/1")).andExpect(status().isNoContent()).andExpect(content().string(""));
         verify(service).deleteCourse(1L);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"POST", "PUT"})
     void rejectsBlankNameBeforeCallingService(String method) throws Exception {
-        mvc.perform(request(HttpMethod.valueOf(method), "/api/courses" + (method.equals("PUT") ? "/1" : ""))
+        mvc.perform(request(HttpMethod.valueOf(method), "/course" + (method.equals("PUT") ? "/1" : ""))
                 .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("New name", " ")))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").exists())
                 .andExpect(jsonPath("$.trace").doesNotExist());
@@ -99,7 +99,7 @@ class CourseControllerTest {
 
     @Test
     void rejectsMalformedJson() throws Exception {
-        mvc.perform(post("/api/courses").contentType(MediaType.APPLICATION_JSON).content("{"))
+        mvc.perform(post("/course").contentType(MediaType.APPLICATION_JSON).content("{"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
@@ -107,7 +107,7 @@ class CourseControllerTest {
     @Test
     void missingRecordReturns404() throws Exception {
         when(service.getCourseById(1L)).thenThrow(new IllegalArgumentException("Course not found"));
-        mvc.perform(get("/api/courses/1")).andExpect(status().isNotFound())
+        mvc.perform(get("/course/1")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Course not found"))
                 .andExpect(jsonPath("$.trace").doesNotExist());
     }
@@ -115,7 +115,7 @@ class CourseControllerTest {
     @Test
     void unexpectedFailureDoesNotLeakDetails() throws Exception {
         when(service.getCourseById(1L)).thenThrow(new RuntimeException("private SQL details"));
-        mvc.perform(get("/api/courses/1")).andExpect(status().isInternalServerError())
+        mvc.perform(get("/course/1")).andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("Internal server error"))
                 .andExpect(jsonPath("$.trace").doesNotExist());
     }
@@ -124,7 +124,7 @@ class CourseControllerTest {
     void deleteConflictReturns409() throws Exception {
         doThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Record contains children"))
                 .when(service).deleteCourse(1L);
-        mvc.perform(delete("/api/courses/1")).andExpect(status().isConflict())
+        mvc.perform(delete("/course/1")).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Record contains children"));
     }
 }

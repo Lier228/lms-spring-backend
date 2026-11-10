@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Courses"
         , description = "Manage courses")
 @RestController
-@RequestMapping("/api/courses")
+@RequestMapping("/course")
 @RequiredArgsConstructor
 public class CourseController {
     private final CourseService courseService;
@@ -38,7 +38,7 @@ public class CourseController {
         @ApiResponse(responseCode = "400", description = "Invalid request body or parameters", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
-    @GetMapping("/")
+    @GetMapping
     public Page<CourseResponse> getAll(@ParameterObject @PageableDefault(size = 10, sort = "id")Pageable pageable) {
         return courseService.getAllCourses(pageable);
     }
@@ -57,7 +57,7 @@ public class CourseController {
         return courseService.getCourseById(id);
     }
 
-    @Operation(summary = "Create a course", description = "Creates a record from the request body.", operationId = "createCourse")
+    @Operation(summary = "Create a course", description = "ROLE_ADMIN only. Creates a record from the request body.", operationId = "createCourse")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -70,7 +70,7 @@ public class CourseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(courseService.createCourse(request));
     }
 
-    @Operation(summary = "Update a course", description = "Replaces editable fields. Name is required. Omitted optional fields are cleared.", operationId = "updateCourse")
+    @Operation(summary = "Update a course", description = "ROLE_ADMIN only. Replaces editable fields. Name is required. Omitted optional fields are cleared.", operationId = "updateCourse")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -84,7 +84,7 @@ public class CourseController {
         return ResponseEntity.ok(courseService.updateCourse(id, request));
     }
 
-    @Operation(summary = "Delete a course", description = "Deletes the record. Returns no response body. Deletion is rejected while child records exist.", operationId = "deleteCourse")
+    @Operation(summary = "Delete a course", description = "ROLE_ADMIN only. Deletes the record. Returns no response body. Deletion is rejected while child records exist.", operationId = "deleteCourse")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),

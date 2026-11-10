@@ -158,4 +158,13 @@ class LessonServiceTest {
         verify(repository).findByIdAndChapterId(1L, 99L);
         verify(repository, never()).findById(anyLong());
     }
+    @Test
+    void cannotDeleteLessonWithAttachments() {
+        when(repository.findByIdAndChapterId(1L, 10L)).thenReturn(Optional.of(entity));
+        doThrow(new DataIntegrityViolationException("fk_attachment_lesson")).when(repository).flush();
+        var error = assertThrows(ResponseStatusException.class, () -> service.deleteLessonByChapterId(1L, 10L));
+        assertEquals(409, error.getStatusCode().value());
+        assertEquals("Cannot delete lesson: it contains attachments", error.getReason());
+    }
+
 }

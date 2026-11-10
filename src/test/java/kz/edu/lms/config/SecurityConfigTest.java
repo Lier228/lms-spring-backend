@@ -40,7 +40,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = OpenApiDocumentationTest.TestConfig.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.docker.compose.enabled=false")
+        properties = {"spring.docker.compose.enabled=false", "spring.servlet.multipart.max-file-size=1KB",
+                "spring.servlet.multipart.max-request-size=4KB"})
 class SecurityConfigTest {
     private static final String ISSUER = "https://issuer.example.test/realms/lms";
     private static final String AUDIENCE = "lms-backend";
@@ -72,6 +73,7 @@ class SecurityConfigTest {
         registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> AUDIENCE);
     }
 
+    @Autowired kz.edu.lms.service.AttachmentService attachmentService;
     @Autowired Environment environment;
     @Autowired JwtDecoder jwtDecoder;
     @Autowired org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter converter;
@@ -112,9 +114,9 @@ class SecurityConfigTest {
     }
 
     static Stream<Arguments> endpoints() {
-        return Stream.of("/api/courses", "/api/courses/1/chapters", "/api/chapters/1/lessons")
+        return Stream.of("/course", "/chapter", "/lesson")
                 .flatMap(base -> Stream.of(
-                        Arguments.of("GET", base.equals("/api/courses") ? base + "/" : base, 200),
+                        Arguments.of("GET", base, 200),
                         Arguments.of("GET", base + "/1", 200),
                         Arguments.of("POST", base, 201),
                         Arguments.of("PUT", base + "/1", 200),
@@ -126,8 +128,7 @@ class SecurityConfigTest {
                 endpoints().map(endpoint -> {
                     Object[] values = endpoint.get();
                     String method = (String) values[0];
-                    boolean allowed = role.equals("ROLE_ADMIN") || method.equals("GET")
-                            || (role.equals("ROLE_TEACHER") && !method.equals("DELETE"));
+                    boolean allowed = role.equals("ROLE_ADMIN") || method.equals("GET");
                     return Arguments.of(role, method, values[1], allowed ? values[2] : 403);
                 }));
     }
@@ -160,7 +161,7 @@ class SecurityConfigTest {
                 failure.equals("audience") ? "another-api" : AUDIENCE,
                 Instant.now().plusSeconds(failure.equals("expired") ? -120 : 300),
                 Map.of("roles", List.of("ROLE_ADMIN")));
-        var response = request("GET", "/api/courses/", jwt);
+        var response = request("GET", "/course", jwt);
         assertEquals(401, response.statusCode(), response.body());
         assertTrue(response.body().contains("Authentication required"));
         assertFalse(response.body().contains("trace"));
@@ -170,7 +171,7 @@ class SecurityConfigTest {
     void tokenWithoutApplicationRoleIsForbidden() throws Exception {
         for (Object roles : List.of(Map.of(), Map.of("roles", List.of("offline_access", "ADMIN")),
                 Map.of("roles", "ROLE_ADMIN"), "invalid")) {
-            assertEquals(403, request("GET", "/api/courses/", token(roles)).statusCode());
+            assertEquals(403, request("GET", "/course", token(roles)).statusCode());
         }
     }
 
@@ -202,7 +203,7 @@ class SecurityConfigTest {
 
     @Test
     void authorizedInvalidRequestStillReturnsValidationError() throws Exception {
-        var response = request("POST", "/api/courses", token(Map.of("roles", List.of("ROLE_TEACHER"))), "{}");
+        var response = request("POST", "/course", token(Map.of("roles", List.of("ROLE_ADMIN"))), "{}");
         assertEquals(400, response.statusCode(), response.body());
     }
 
@@ -241,6 +242,8 @@ class SecurityConfigTest {
     }
 
     private HttpResponse<String> request(String method, String path, String token, String body) throws Exception {
+        if (path.equals("/lesson") || path.startsWith("/lesson/")) path += "?chapterId=1";
+        if (path.equals("/chapter") || path.startsWith("/chapter/")) path += "?courseId=1";
         var builder = HttpRequest.newBuilder(URI.create("http://localhost:"
                 + environment.getProperty("local.server.port") + path)).header("Content-Type", "application/json");
         if (token != null) builder.header("Authorization", "Bearer " + token);
@@ -275,6 +278,68 @@ class SecurityConfigTest {
         String jwt = token(Map.of("roles", List.of("ROLE_USER")));
         assertEquals(403, request("PUT", "/api/users/another-user-id", jwt, "{}").statusCode());
         assertEquals(403, request("PUT", "/api/users/another-user-id/password", jwt, "{}").statusCode());
+    }
+
+    @Test
+    void oldCourseCreationRouteIsNotAvailable() throws Exception {
+        var response = request("POST", "/api/courses", token(Map.of("roles", List.of("ROLE_ADMIN"))));
+        assertEquals(404, response.statusCode());
+    }
+
+    @Test
+    void oldChapterCreationRouteIsNotAvailable() throws Exception {
+        var response = request("POST", "/api/courses/1/chapters", token(Map.of("roles", List.of("ROLE_ADMIN"))));
+        assertEquals(404, response.statusCode());
+    }
+
+    @Test
+    void oldLessonCreationRouteIsNotAvailable() throws Exception {
+        var response = request("POST", "/api/chapters/1/lessons", token(Map.of("roles", List.of("ROLE_ADMIN"))));
+        assertEquals(404, response.statusCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER", "NO_ROLE", "NONE"})
+    void fileEndpointsEnforcePermissions(String role) throws Exception {
+        var id = java.util.UUID.randomUUID();
+        org.mockito.Mockito.when(attachmentService.download(org.mockito.ArgumentMatchers.eq(id), org.mockito.ArgumentMatchers.any())).thenAnswer(invocation ->
+                new kz.edu.lms.service.FileService.Download(new org.springframework.core.io.InputStreamResource(
+                        new java.io.ByteArrayInputStream(new byte[]{1, 2})), "lesson.txt", 2));
+        org.mockito.Mockito.when(attachmentService.upload(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(
+                new kz.edu.lms.dto.attachment.AttachmentResponse(1L, "lesson.txt", "/download?url=" + id, 1L, java.time.LocalDateTime.now()));
+        String jwt = role.equals("NONE") ? null : token(Map.of("roles", role.equals("NO_ROLE") ? List.of() : List.of(role)));
+        int readStatus = role.equals("NONE") ? 401 : role.equals("NO_ROLE") ? 403 : 200;
+        int writeStatus = role.equals("NONE") ? 401 : (role.equals("ROLE_ADMIN") || role.equals("ROLE_TEACHER")) ? 201 : 403;
+        assertEquals(readStatus, request("GET", "/download?url=" + id, jwt).statusCode());
+        var upload = uploadFile(jwt, "ok");
+        assertEquals(writeStatus, upload.statusCode(), upload.body());
+    }
+
+    @Test
+    void oversizedUploadReturns413WithoutTrace() throws Exception {
+        var response = uploadFile(token(Map.of("roles", List.of("ROLE_ADMIN"))), "x".repeat(2048));
+        assertEquals(413, response.statusCode(), response.body());
+        assertTrue(response.body().contains("413"));
+        assertFalse(response.body().contains("trace"));
+    }
+
+    private HttpResponse<String> uploadFile(String jwt, String content) throws Exception {
+        String body = "--test-boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"lesson.txt\"\r\n"
+                + "Content-Type: text/plain\r\n\r\n" + content + "\r\n--test-boundary--\r\n";
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + environment.getProperty("local.server.port") + "/upload?lessonId=1"))
+                .header("Content-Type", "multipart/form-data; boundary=test-boundary")
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (jwt != null) request.header("Authorization", "Bearer " + jwt);
+        return HttpClient.newHttpClient().send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void legacyFileRoutesCannotBypassAttachmentChecks() throws Exception {
+        for (String role : List.of("ROLE_USER", "ROLE_TEACHER", "ROLE_ADMIN")) {
+            String jwt = token(Map.of("roles", List.of(role)));
+            assertEquals(403, request("GET", "/file/" + java.util.UUID.randomUUID(), jwt).statusCode());
+            assertEquals(403, request("POST", "/file", jwt).statusCode());
+        }
     }
 
 }

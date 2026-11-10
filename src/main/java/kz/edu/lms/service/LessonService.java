@@ -13,6 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -91,7 +94,12 @@ public class LessonService {
                 .orElseThrow(() -> new IllegalArgumentException("Lesson not found"));
 
 
-        lessonRepository.delete(entity);
-        lessonRepository.flush();
+        try {
+            lessonRepository.delete(entity);
+            lessonRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot delete lesson: it contains attachments", exception);
+        }
     }
 }

@@ -49,7 +49,7 @@ class LessonControllerTest {
     void listsWithRequestedPagination() throws Exception {
         when(service.getAllByChapterId(eq(10L), any(Pageable.class))).thenAnswer(invocation ->
                 new PageImpl<>(List.of(response), invocation.getArgument(1), 11));
-        mvc.perform(get("/api/chapters/10/lessons").param("page", "1").param("size", "10").param("sort", "name,desc"))
+        mvc.perform(get("/lesson").param("chapterId", "10").param("page", "1").param("size", "10").param("sort", "name,desc"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(1))
                 .andExpect(jsonPath("$.totalElements").value(11));
         verify(service).getAllByChapterId(eq(10L), eq(PageRequest.of(1, 10, Sort.by(Sort.Direction.DESC, "name"))));
@@ -58,7 +58,7 @@ class LessonControllerTest {
     @Test
     void getsRecordUsingPathIds() throws Exception {
         when(service.getLessonById(10L, 1L)).thenReturn(response);
-        mvc.perform(get("/api/chapters/10/lessons/1")).andExpect(status().isOk())
+        mvc.perform(get("/lesson/1").param("chapterId", "10")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("New name"));
         verify(service).getLessonById(10L, 1L);
     }
@@ -67,7 +67,7 @@ class LessonControllerTest {
     void createsAndReturns201() throws Exception {
         var request = new LessonCreateRequest("New name", "Description", "Content", 2);
         when(service.createLesson(10L, request)).thenReturn(response);
-        mvc.perform(post("/api/chapters/10/lessons").contentType(MediaType.APPLICATION_JSON).content(BODY))
+        mvc.perform(post("/lesson").param("chapterId", "10").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(1));
         verify(service).createLesson(10L, request);
     }
@@ -76,21 +76,21 @@ class LessonControllerTest {
     void updatesAndReturns200() throws Exception {
         var request = new LessonUpdateRequest("New name", "Description", "Content", 2);
         when(service.updateLesson(10L, 1L, request)).thenReturn(response);
-        mvc.perform(put("/api/chapters/10/lessons/1").contentType(MediaType.APPLICATION_JSON).content(BODY))
+        mvc.perform(put("/lesson/1").param("chapterId", "10").contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("New name"));
         verify(service).updateLesson(10L, 1L, request);
     }
 
     @Test
     void deletesAndReturnsEmpty204() throws Exception {
-        mvc.perform(delete("/api/chapters/10/lessons/1")).andExpect(status().isNoContent()).andExpect(content().string(""));
+        mvc.perform(delete("/lesson/1").param("chapterId", "10")).andExpect(status().isNoContent()).andExpect(content().string(""));
         verify(service).deleteLessonByChapterId(1L, 10L);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"POST", "PUT"})
     void rejectsBlankNameBeforeCallingService(String method) throws Exception {
-        mvc.perform(request(HttpMethod.valueOf(method), "/api/chapters/10/lessons" + (method.equals("PUT") ? "/1" : ""))
+        mvc.perform(request(HttpMethod.valueOf(method), "/lesson" + (method.equals("PUT") ? "/1" : "")).param("chapterId", "10")
                 .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("New name", " ")))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").exists())
                 .andExpect(jsonPath("$.trace").doesNotExist());
@@ -99,7 +99,7 @@ class LessonControllerTest {
 
     @Test
     void rejectsMalformedJson() throws Exception {
-        mvc.perform(post("/api/chapters/10/lessons").contentType(MediaType.APPLICATION_JSON).content("{"))
+        mvc.perform(post("/lesson").param("chapterId", "10").contentType(MediaType.APPLICATION_JSON).content("{"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
@@ -107,7 +107,7 @@ class LessonControllerTest {
     @Test
     void missingRecordReturns404() throws Exception {
         when(service.getLessonById(10L, 1L)).thenThrow(new IllegalArgumentException("Lesson not found"));
-        mvc.perform(get("/api/chapters/10/lessons/1")).andExpect(status().isNotFound())
+        mvc.perform(get("/lesson/1").param("chapterId", "10")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Lesson not found"))
                 .andExpect(jsonPath("$.trace").doesNotExist());
     }
@@ -115,7 +115,7 @@ class LessonControllerTest {
     @Test
     void unexpectedFailureDoesNotLeakDetails() throws Exception {
         when(service.getLessonById(10L, 1L)).thenThrow(new RuntimeException("private SQL details"));
-        mvc.perform(get("/api/chapters/10/lessons/1")).andExpect(status().isInternalServerError())
+        mvc.perform(get("/lesson/1").param("chapterId", "10")).andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("Internal server error"))
                 .andExpect(jsonPath("$.trace").doesNotExist());
     }
@@ -123,9 +123,25 @@ class LessonControllerTest {
     @ParameterizedTest
     @ValueSource(strings = {"0", "null"})
     void rejectsInvalidSortOrder(String value) throws Exception {
-        mvc.perform(post("/api/chapters/10/lessons").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/lesson").param("chapterId", "10").contentType(MediaType.APPLICATION_JSON)
                 .content(BODY.replace("\"sortOrder\":2", "\"sortOrder\":" + value)))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(service);
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "POST", "PUT", "DELETE"})
+    void requiresChapterId(String method) throws Exception {
+        String path = method.equals("PUT") || method.equals("DELETE") ? "/lesson/1" : "/lesson";
+        mvc.perform(request(HttpMethod.valueOf(method), path).contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void rejectsInvalidChapterId() throws Exception {
+        mvc.perform(post("/lesson").param("chapterId", "invalid").contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
 }

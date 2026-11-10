@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
         , description = "Manage chapters within a course")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/courses/{courseId}/chapters")
+@RequestMapping("/chapter")
 public class ChapterController {
     private final ChapterService chapterService;
 
@@ -41,7 +41,7 @@ public class ChapterController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping
-    public Page<ChapterResponse> getAll(@Parameter(description = "Parent course ID", example = "1", required = true) @PathVariable Long courseId,
+    public Page<ChapterResponse> getAll(@Parameter(description = "Parent course ID", example = "1", required = true) @RequestParam Long courseId,
                                         @ParameterObject @PageableDefault(size = 10, sort = {"sortOrder", "id"})
                                         Pageable pageable) {
         return chapterService.getAllByCourseId(courseId, pageable);
@@ -58,12 +58,12 @@ public class ChapterController {
     })
     @GetMapping("/{id}")
     public ChapterResponse getById(
-            @Parameter(description = "Parent course ID", example = "1", required = true) @PathVariable Long courseId,
+            @Parameter(description = "Parent course ID", example = "1", required = true) @RequestParam Long courseId,
             @Parameter(description = "Chapter ID", example = "1", required = true) @PathVariable Long id) {
         return chapterService.getChapterById(courseId, id);
     }
 
-    @Operation(summary = "Create a chapter", description = "Creates a record from the request body. The course must exist.", operationId = "createChapter")
+    @Operation(summary = "Create a chapter", description = "ROLE_ADMIN only. Creates a record from the request body. The course must exist.", operationId = "createChapter")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -73,11 +73,11 @@ public class ChapterController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
-    public ResponseEntity<ChapterResponse> createChapter(@RequestBody @Valid ChapterCreateRequest request, @Parameter(description = "Parent course ID", example = "1", required = true) @PathVariable Long courseId) {
+    public ResponseEntity<ChapterResponse> createChapter(@RequestBody @Valid ChapterCreateRequest request, @Parameter(description = "Parent course ID", example = "1", required = true) @RequestParam Long courseId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(chapterService.createChapter(courseId, request));
     }
 
-    @Operation(summary = "Update a chapter", description = "Replaces editable fields. Name and sortOrder are required. Omitted optional fields are cleared. The course must exist. The chapter must belong to that course.", operationId = "updateChapter")
+    @Operation(summary = "Update a chapter", description = "ROLE_ADMIN only. Replaces editable fields. Name and sortOrder are required. Omitted optional fields are cleared. The course must exist. The chapter must belong to that course.", operationId = "updateChapter")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -87,11 +87,11 @@ public class ChapterController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PutMapping("/{id}")
-    public ResponseEntity<ChapterResponse> updateChapter(@Parameter(description = "Parent course ID", example = "1", required = true) @PathVariable Long courseId, @Parameter(description = "Chapter ID", example = "1", required = true) @PathVariable Long id, @RequestBody @Valid ChapterUpdateRequest request) {
+    public ResponseEntity<ChapterResponse> updateChapter(@Parameter(description = "Parent course ID", example = "1", required = true) @RequestParam Long courseId, @Parameter(description = "Chapter ID", example = "1", required = true) @PathVariable Long id, @RequestBody @Valid ChapterUpdateRequest request) {
         return ResponseEntity.ok(chapterService.updateChapter(courseId, id, request));
     }
 
-    @Operation(summary = "Delete a chapter", description = "Deletes the record. Returns no response body. The course must exist. The chapter must belong to that course. Deletion is rejected while child records exist.", operationId = "deleteChapter")
+    @Operation(summary = "Delete a chapter", description = "ROLE_ADMIN only. Deletes the record. Returns no response body. The course must exist. The chapter must belong to that course. Deletion is rejected while child records exist.", operationId = "deleteChapter")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -102,7 +102,7 @@ public class ChapterController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteChapter(@Parameter(description = "Parent course ID", example = "1", required = true) @PathVariable Long courseId, @Parameter(description = "Chapter ID", example = "1", required = true) @PathVariable Long id) {
+    public ResponseEntity<Void> deleteChapter(@Parameter(description = "Parent course ID", example = "1", required = true) @RequestParam Long courseId, @Parameter(description = "Chapter ID", example = "1", required = true) @PathVariable Long id) {
         chapterService.deleteChapterByCourseId(id, courseId);
         return ResponseEntity.noContent().build();
     }

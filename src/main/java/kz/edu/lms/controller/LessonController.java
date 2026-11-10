@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Lessons"
         , description = "Manage lessons within a chapter")
 @RestController
-@RequestMapping("/api/chapters/{chapterId}/lessons")
+@RequestMapping("/lesson")
 @RequiredArgsConstructor
 public class LessonController {
     private final LessonService lessonService;
@@ -41,7 +41,7 @@ public class LessonController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping
-    public Page<LessonResponse> getAll(@Parameter(description = "Parent chapter ID", example = "1", required = true) @PathVariable Long chapterId,
+    public Page<LessonResponse> getAll(@Parameter(description = "Parent chapter ID", example = "1", required = true) @RequestParam Long chapterId,
                                        @ParameterObject @PageableDefault(size = 10, sort={"sortOrder", "id"})
                                        Pageable pageable) {
         return lessonService.getAllByChapterId(chapterId, pageable);
@@ -58,12 +58,12 @@ public class LessonController {
     })
     @GetMapping("/{id}")
     public LessonResponse getById(
-            @Parameter(description = "Parent chapter ID", example = "1", required = true) @PathVariable Long chapterId,
+            @Parameter(description = "Parent chapter ID", example = "1", required = true) @RequestParam Long chapterId,
             @Parameter(description = "Lesson ID", example = "1", required = true) @PathVariable Long id) {
         return lessonService.getLessonById(chapterId, id);
     }
 
-    @Operation(summary = "Create a lesson", description = "Creates a record from the request body. The chapter must exist.", operationId = "createLesson")
+    @Operation(summary = "Create a lesson", description = "ROLE_ADMIN only. Creates a record from the request body. The chapter must exist.", operationId = "createLesson")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -73,11 +73,11 @@ public class LessonController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
-    public ResponseEntity<LessonResponse> createLesson(@RequestBody @Valid LessonCreateRequest request, @Parameter(description = "Parent chapter ID", example = "1", required = true) @PathVariable Long chapterId) {
+    public ResponseEntity<LessonResponse> createLesson(@RequestBody @Valid LessonCreateRequest request, @Parameter(description = "Parent chapter ID", example = "1", required = true) @RequestParam Long chapterId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(lessonService.createLesson(chapterId, request));
     }
 
-    @Operation(summary = "Update a lesson", description = "Replaces editable fields. Name and sortOrder are required. Omitted optional fields are cleared. The chapter must exist. The lesson must belong to that chapter.", operationId = "updateLesson")
+    @Operation(summary = "Update a lesson", description = "ROLE_ADMIN only. Replaces editable fields. Name and sortOrder are required. Omitted optional fields are cleared. The chapter must exist. The lesson must belong to that chapter.", operationId = "updateLesson")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
@@ -87,21 +87,22 @@ public class LessonController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PutMapping("/{id}")
-    public ResponseEntity<LessonResponse> updateLesson(@Parameter(description = "Parent chapter ID", example = "1", required = true) @PathVariable Long chapterId, @Parameter(description = "Lesson ID", example = "1", required = true) @PathVariable Long id, @RequestBody @Valid LessonUpdateRequest request) {
+    public ResponseEntity<LessonResponse> updateLesson(@Parameter(description = "Parent chapter ID", example = "1", required = true) @RequestParam Long chapterId, @Parameter(description = "Lesson ID", example = "1", required = true) @PathVariable Long id, @RequestBody @Valid LessonUpdateRequest request) {
         return ResponseEntity.ok(lessonService.updateLesson(chapterId, id, request));
     }
 
-    @Operation(summary = "Delete a lesson", description = "Deletes the record. Returns no response body. The chapter must exist. The lesson must belong to that chapter.", operationId = "deleteLesson")
+    @Operation(summary = "Delete a lesson", description = "ROLE_ADMIN only. Deletes the record. Returns no response body. The chapter must exist. The lesson must belong to that chapter.", operationId = "deleteLesson")
     @ApiResponses({
         @ApiResponse(responseCode = "401", description = "Missing or invalid access token", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "403", description = "Insufficient permissions", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "204", description = "Delete a lesson", content = @Content),
         @ApiResponse(responseCode = "400", description = "Invalid request body or parameters", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "404", description = "Lesson or parent chapter not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "409", description = "Lesson contains attachments", content = @Content(schema = @Schema(implementation = ApiError.class))),
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteLesson(@Parameter(description = "Parent chapter ID", example = "1", required = true) @PathVariable Long chapterId, @Parameter(description = "Lesson ID", example = "1", required = true) @PathVariable Long id) {
+    public ResponseEntity<Void> deleteLesson(@Parameter(description = "Parent chapter ID", example = "1", required = true) @RequestParam Long chapterId, @Parameter(description = "Lesson ID", example = "1", required = true) @PathVariable Long id) {
         lessonService.deleteLessonByChapterId(id, chapterId);
         return ResponseEntity.noContent().build();
     }

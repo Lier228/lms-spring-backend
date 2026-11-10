@@ -5,4 +5,5 @@
     <include file="changes/001-create-course-content.xml" relativeToChangelogFile="true"/>
     <include file="changes/002-seed-course-content.xml" relativeToChangelogFile="true"/>
     <include file="changes/003-expand-java-developer.xml" relativeToChangelogFile="true"/>
+    <include file="changes/004-create-attachments.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

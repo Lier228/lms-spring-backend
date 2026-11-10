@@ -10,6 +10,7 @@ The project includes CRUD operations, request validation, database migrations, A
 | --- | --- |
 | Language | Java 21 |
 | Application | Spring Boot 4.1.1, Spring MVC |
+| File storage | MinIO (S3), MinIO Java SDK |
 | Persistence | Spring Data JPA, Hibernate, PostgreSQL |
 | Migrations | Liquibase |
 | Validation | Jakarta Bean Validation |
@@ -28,11 +29,14 @@ The project includes CRUD operations, request validation, database migrations, A
 - Protect courses and chapters from deletion while they contain child records.
 - Track creation and update timestamps with JPA auditing.
 - Initialize the database and course content through Liquibase.
-- Explore all 21 API operations in Swagger UI.
+- Attach files to lessons through MinIO; Compose creates the private bucket automatically.
+- Explore all 23 API operations in Swagger UI.
 
 Spring Security validates Keycloak access tokens and applies ROLE_USER, ROLE_TEACHER, and ROLE_ADMIN permissions. Keycloak runs in Docker Compose with its own PostgreSQL database.
 
 Registration is available only to ROLE_ADMIN through `POST /api/users`. See [LT13 registration setup](docs/registration.md).
+
+See [file storage setup and Postman examples](docs/files.md) for MinIO.
 
 ## Run with Docker Compose
 
@@ -46,7 +50,7 @@ docker compose logs -f app
 
 The Dockerfile copies the prebuilt `build/libs/lms-backend-0.0.1-SNAPSHOT.jar` into a Java 21 runtime image and runs it as a non-root user. If that JAR is already up to date, skip `bootJar`. Docker does not compile the application.
 
-Compose builds the image, starts PostgreSQL, and waits for the database health check before starting the application. Liquibase applies pending migrations, and Hibernate validates the schema. After changing source code or migrations, rebuild the JAR before rebuilding the image.
+Compose builds the images and waits for PostgreSQL and MinIO bucket initialization before starting the application. Liquibase applies pending migrations, and Hibernate validates the schema. After changing source code or migrations, rebuild the JAR before rebuilding the application image. The first MinIO build compiles the pinned source releases and takes longer.
 
 If the JAR name changes, update `JAR_FILE` in the Dockerfile or pass the new path when building:
 
@@ -59,9 +63,11 @@ docker compose up -d --no-build
 | --- | --- |
 | Swagger UI | [localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
 | OpenAPI JSON | [localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) |
-| Courses | [localhost:8080/api/courses/](http://localhost:8080/api/courses/) |
+| Courses | [localhost:8080/course](http://localhost:8080/course) |
 | PostgreSQL from the host | `localhost:5433` |
 | Keycloak Admin Console | [localhost:8082/admin/](http://localhost:8082/admin/) |
+| MinIO Console | [localhost:9001](http://localhost:9001) |
+| MinIO S3 API | `localhost:9000` |
 
 If port `8080` is occupied, select a different host port before starting Compose:
 
@@ -123,7 +129,7 @@ At first startup, Keycloak imports `keycloak/lms-realm.json`, which creates real
 | Role | Permissions | Demo login | Demo password |
 | --- | --- | --- | --- |
 | `ROLE_USER` | Read courses, chapters, and lessons | `student` | `student123` |
-| `ROLE_TEACHER` | Read, create, and update | `teacher` | `teacher123` |
+| `ROLE_TEACHER` | Read courses, chapters, and lessons | `teacher` | `teacher123` |
 | `ROLE_ADMIN` | Read, create, update, and delete | `lms-admin` | `admin123` |
 
 These accounts belong to realm `lms`. The bootstrap `admin` account manages Keycloak in realm `master`.
@@ -159,23 +165,25 @@ All paths below are relative to the application address. Request and response sc
 | PUT | `/api/users/me` | Update my profile |
 | PUT | `/api/users/me/password` | Update my password |
 | PUT | `/api/users/{id}/role` | Change an application role (ROLE_ADMIN only) |
-| GET | `/api/courses/` | List courses |
-| POST | `/api/courses` | Create a course |
-| GET | `/api/courses/{id}` | Get a course |
-| PUT | `/api/courses/{id}` | Update a course |
-| DELETE | `/api/courses/{id}` | Delete a course |
-| GET | `/api/courses/{courseId}/chapters` | List chapters in a course |
-| POST | `/api/courses/{courseId}/chapters` | Create a chapter in a course |
-| GET | `/api/courses/{courseId}/chapters/{id}` | Get a chapter in a course |
-| PUT | `/api/courses/{courseId}/chapters/{id}` | Update a chapter in a course |
-| DELETE | `/api/courses/{courseId}/chapters/{id}` | Delete a chapter in a course |
-| GET | `/api/chapters/{chapterId}/lessons` | List lessons in a chapter |
-| POST | `/api/chapters/{chapterId}/lessons` | Create a lesson in a chapter |
-| GET | `/api/chapters/{chapterId}/lessons/{id}` | Get a lesson in a chapter |
-| PUT | `/api/chapters/{chapterId}/lessons/{id}` | Update a lesson in a chapter |
-| DELETE | `/api/chapters/{chapterId}/lessons/{id}` | Delete a lesson in a chapter |
+| POST | `/upload?lessonId={id}` | Attach a file to a lesson (ROLE_ADMIN or ROLE_TEACHER) |
+| GET | `/download?url={uuid}` | Download an attachment after checking course access |
+| GET | `/course` | List courses |
+| POST | `/course` | Create a course |
+| GET | `/course/{id}` | Get a course |
+| PUT | `/course/{id}` | Update a course |
+| DELETE | `/course/{id}` | Delete a course |
+| GET | `/chapter?courseId={courseId}` | List chapters in a course |
+| POST | `/chapter?courseId={courseId}` | Create a chapter in a course |
+| GET | `/chapter/{id}?courseId={courseId}` | Get a chapter in a course |
+| PUT | `/chapter/{id}?courseId={courseId}` | Update a chapter in a course |
+| DELETE | `/chapter/{id}?courseId={courseId}` | Delete a chapter in a course |
+| GET | `/lesson?chapterId={chapterId}` | List lessons in a chapter |
+| POST | `/lesson?chapterId={chapterId}` | Create a lesson in a chapter |
+| GET | `/lesson/{id}?chapterId={chapterId}` | Get a lesson in a chapter |
+| PUT | `/lesson/{id}?chapterId={chapterId}` | Update a lesson in a chapter |
+| DELETE | `/lesson/{id}?chapterId={chapterId}` | Delete a lesson in a chapter |
 
-The course list URL includes a trailing slash. Chapters and lessons are scoped to their parent: an ID belonging to another parent returns `404`.
+The course list URL is `/course` (without a trailing slash). Creating, updating, and deleting courses, chapters, and lessons requires ROLE_ADMIN. Chapter requests require the `courseId` query parameter; lesson requests require `chapterId`. Chapters and lessons are scoped to their parent: an ID belonging to another parent returns `404`.
 
 ### Pagination and sorting
 
@@ -187,9 +195,9 @@ Collection endpoints return a Spring Data `Page` with items in `content` and pag
 - Default ordering: courses by `id`; chapters and lessons by `sortOrder`, then `id`.
 
 ```http
-GET /api/courses/?page=0&size=10&sort=id,desc
-GET /api/courses/1/chapters?page=0&size=20&sort=sortOrder,asc&sort=id,asc
-GET /api/chapters/1/lessons?page=0&size=20
+GET /course?page=0&size=10&sort=id,desc
+GET /chapter?courseId=1&page=0&size=20&sort=sortOrder,asc&sort=id,asc
+GET /lesson?chapterId=1&page=0&size=20
 ```
 
 ### Create a lesson
@@ -197,7 +205,7 @@ GET /api/chapters/1/lessons?page=0&size=20
 Send this request with the ID of an existing chapter:
 
 ```http
-POST /api/chapters/1/lessons
+POST /lesson?chapterId=1
 Content-Type: application/json
 
 {
@@ -281,11 +289,12 @@ docker compose build app
 docker compose push app
 ```
 
-On another computer, copy `compose.yaml` and the `keycloak` directory, set `APP_IMAGE` to the published image, and run from the directory containing the Compose file:
+On another computer, copy `compose.yaml`, the `keycloak` directory, and the `minio` directory, set `APP_IMAGE` to the published image, and run from the directory containing the Compose file:
 
 ```powershell
 $env:APP_IMAGE = "YOUR_DOCKERHUB_USERNAME/lms-backend:1.0.0"
-docker compose pull
+docker compose pull app postgres keycloak keycloak-db
+docker compose build minio minio-init
 docker compose up -d --no-build
 ```
 

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -22,6 +23,17 @@ import org.springframework.web.server.ResponseStatusException;
 public class CourseService {
     private final CourseRepository courseRepository;
     private final CourseMapper courseMapper;
+
+    @Transactional(readOnly = true)
+    public void checkReadAccess(Long courseId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        boolean allowed = authentication.getAuthorities().stream().anyMatch(authority ->
+                java.util.Set.of("ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER").contains(authority.getAuthority()));
+        if (!allowed) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Course access denied");
+        if (!courseRepository.existsById(courseId)) throw new IllegalArgumentException("Course not found");
+    }
 
     @Transactional(readOnly = true)
     public Page<CourseResponse> getAllCourses(Pageable pageable) {

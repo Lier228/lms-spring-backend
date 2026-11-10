@@ -35,9 +35,10 @@ class OpenApiDocumentationTest {
             "org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration",
             "org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration"
     })
-    @Import({UserController.class, AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
+    @Import({AttachmentController.class, UserController.class, AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
             GlobalExceptionHandler.class, OpenApiConfig.class, SecurityConfig.class})
     static class TestConfig {
+        @Bean AttachmentService attachmentService() { return mock(AttachmentService.class); }
         @Bean UserService userService() { return mock(UserService.class); }
         @Bean AuthService authService() { return mock(AuthService.class); }
         @Bean CourseService courseService() { return mock(CourseService.class); }
@@ -72,13 +73,46 @@ class OpenApiDocumentationTest {
                 assertTrue(responses.containsKey(success));
             }
         }
-        assertEquals(21, operations);
+        assertEquals(23, operations);
+        assertTrue(paths.containsKey("/upload"));
+        assertFalse(paths.containsKey("/file"));
+        assertFalse(paths.containsKey("/file/{id}"));
+        assertTrue(paths.containsKey("/download"));
+        assertEquals("binary", JsonPath.read(response.body(),
+                "$.paths['/download'].get.responses['200'].content['application/octet-stream'].schema.format"));
+        assertNotNull(JsonPath.read(response.body(),
+                "$.paths['/upload'].post.requestBody.content['multipart/form-data']"));
+        assertTrue(paths.containsKey("/chapter"));
+        assertTrue(paths.containsKey("/chapter/{id}"));
+        assertFalse(paths.containsKey("/api/courses/{courseId}/chapters"));
+        assertFalse(paths.containsKey("/api/courses/{courseId}/chapters/{id}"));
+        for (String chapterPath : java.util.List.of("/chapter", "/chapter/{id}")) {
+            for (var operation : paths.get(chapterPath).values()) {
+                var parameters = (java.util.List<Map<String, Object>>) operation.get("parameters");
+                assertTrue(parameters.stream().anyMatch(parameter -> "courseId".equals(parameter.get("name"))
+                        && "query".equals(parameter.get("in")) && Boolean.TRUE.equals(parameter.get("required"))));
+            }
+        }
+        assertTrue(paths.containsKey("/course"));
+        assertTrue(paths.containsKey("/course/{id}"));
+        assertFalse(paths.containsKey("/api/courses"));
+        assertFalse(paths.containsKey("/api/courses/{id}"));
         assertTrue(paths.containsKey("/api/users"));
         assertEquals(java.util.List.of(), paths.get("/api/auth/refresh").get("post").get("security"));
         assertEquals(java.util.List.of(), paths.get("/api/auth/login").get("post").get("security"));
         assertEquals("bearer", JsonPath.read(response.body(), "$.components.securitySchemes.bearerAuth.scheme"));
         assertTrue(response.body().contains("bearerAuth"));
-        assertTrue(paths.containsKey("/api/chapters/{chapterId}/lessons/{id}"));
+        assertTrue(paths.containsKey("/lesson"));
+        assertTrue(paths.containsKey("/lesson/{id}"));
+        assertFalse(paths.containsKey("/api/chapters/{chapterId}/lessons"));
+        assertFalse(paths.containsKey("/api/chapters/{chapterId}/lessons/{id}"));
+        for (String lessonPath : java.util.List.of("/lesson", "/lesson/{id}")) {
+            for (var operation : paths.get(lessonPath).values()) {
+                var parameters = (java.util.List<Map<String, Object>>) operation.get("parameters");
+                assertTrue(parameters.stream().anyMatch(parameter -> "chapterId".equals(parameter.get("name"))
+                        && "query".equals(parameter.get("in")) && Boolean.TRUE.equals(parameter.get("required"))));
+            }
+        }
         assertTrue(response.body().contains("#/components/schemas/ApiError"));
         assertTrue(response.body().contains("sortOrder"));
         assertTrue(response.body().contains("\"page\""));
