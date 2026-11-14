@@ -4,6 +4,25 @@ REST API for a learning management system built with Java and Spring Boot. Cours
 
 The project includes CRUD operations, request validation, database migrations, API documentation, automated tests, and a Docker Compose setup with PostgreSQL.
 
+## Explore the API
+
+From the project root, build the application with JDK 21 and start the Docker Compose services.
+
+```powershell
+.\gradlew.bat bootJar
+docker compose up -d --build
+```
+
+On Linux or macOS, use `./gradlew bootJar` for the first command. Open [Swagger UI](http://localhost:8080/swagger-ui.html) to browse the 23 operations, or download the [OpenAPI JSON](http://localhost:8080/v3/api-docs). Expand `POST /course` for its request fields and response codes. The [authentication guide](docs/authentication.md) explains how to obtain a token for protected operations.
+
+## API preview
+
+![All LMS API operations grouped by resource](docs/images/api-overview.png)
+
+The course creation example below shows the JSON payload and the documented success response.
+
+![Create course request and 201 response from the OpenAPI specification](docs/images/create-course.png)
+
 ## Technology stack
 
 | Component | Technology |
@@ -37,6 +56,37 @@ Spring Security validates Keycloak access tokens and applies ROLE_USER, ROLE_TEA
 Registration is available only to ROLE_ADMIN through `POST /api/users`. See [LT13 registration setup](docs/registration.md).
 
 See [file storage setup and Postman examples](docs/files.md) for MinIO.
+
+## Database schema
+
+PostgreSQL stores the course structure and attachment metadata. MinIO stores file contents. The foreign keys are defined in [migration 001](src/main/resources/db/changelog/changes/001-create-course-content.xml) and [migration 004](src/main/resources/db/changelog/changes/004-create-attachments.xml).
+
+```mermaid
+erDiagram
+    courses ||--o{ chapter : contains
+    chapter ||--o{ lesson : contains
+    lesson ||--o{ attachments : has
+    courses {
+        bigint id PK
+        varchar name
+    }
+    chapter {
+        bigint id PK
+        bigint course_id FK
+        int sort_order
+    }
+    lesson {
+        bigint id PK
+        bigint chapter_id FK
+        int sort_order
+    }
+    attachments {
+        bigint id PK
+        bigint lesson_id FK
+        varchar name
+        varchar url UK
+    }
+```
 
 ## Run with Docker Compose
 
