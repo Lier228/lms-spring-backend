@@ -49,7 +49,7 @@ The course creation example below shows the JSON payload and the documented succ
 - Track creation and update timestamps with JPA auditing.
 - Initialize the database and course content through Liquibase.
 - Attach files to lessons through MinIO; Compose creates the private bucket automatically.
-- Explore all 23 API operations in Swagger UI.
+- Explore all 25 API operations in Swagger UI.
 
 Spring Security validates Keycloak access tokens and applies ROLE_USER, ROLE_TEACHER, and ROLE_ADMIN permissions. Keycloak runs in Docker Compose with its own PostgreSQL database.
 
@@ -178,7 +178,7 @@ At first startup, Keycloak imports `keycloak/lms-realm.json`, which creates real
 
 | Role | Permissions | Demo login | Demo password |
 | --- | --- | --- | --- |
-| `ROLE_USER` | Read courses, chapters, and lessons | `student` | `student123` |
+| `ROLE_USER` | Read assigned courses, chapters, lessons and attachments | `student` | `student123` |
 | `ROLE_TEACHER` | Read courses, chapters, and lessons | `teacher` | `teacher123` |
 | `ROLE_ADMIN` | Read, create, update, and delete | `lms-admin` | `admin123` |
 
@@ -217,6 +217,8 @@ All paths below are relative to the application address. Request and response sc
 | PUT | `/api/users/{id}/role` | Change an application role (ROLE_ADMIN only) |
 | POST | `/upload?lessonId={id}` | Attach a file to a lesson (ROLE_ADMIN or ROLE_TEACHER) |
 | GET | `/download?url={uuid}` | Download an attachment after checking course access |
+| PUT | `/course/{courseId}/access/{userId}` | Grant course access (ROLE_ADMIN only) |
+| DELETE | `/course/{courseId}/access/{userId}` | Revoke course access (ROLE_ADMIN only) |
 | GET | `/course` | List courses |
 | POST | `/course` | Create a course |
 | GET | `/course/{id}` | Get a course |
@@ -232,6 +234,8 @@ All paths below are relative to the application address. Request and response sc
 | GET | `/lesson/{id}?chapterId={chapterId}` | Get a lesson in a chapter |
 | PUT | `/lesson/{id}?chapterId={chapterId}` | Update a lesson in a chapter |
 | DELETE | `/lesson/{id}?chapterId={chapterId}` | Delete a lesson in a chapter |
+
+Students start with an empty course list. In Swagger, sign in as ADMIN and use **Courses → Grant course access**. Enter the course ID and the student's Keycloak ID (from the user creation response or realm `lms` → Users). The student can then read that course, its chapters, lessons and attachments. **Revoke course access** removes access on the next request, even with the same token. Teachers and admins can read all courses. Existing students need an explicit grant after upgrading.
 
 The course list URL is `/course` (without a trailing slash). Creating, updating, and deleting courses, chapters, and lessons requires ROLE_ADMIN. Chapter requests require the `courseId` query parameter; lesson requests require `chapterId`. Chapters and lessons are scoped to their parent: an ID belonging to another parent returns `404`.
 

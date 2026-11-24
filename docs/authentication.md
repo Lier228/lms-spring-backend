@@ -129,17 +129,17 @@ A missing or blank refresh token returns 400. An invalid or expired refresh toke
 
 | HTTP operation | ROLE_USER | ROLE_TEACHER | ROLE_ADMIN |
 | --- | --- | --- | --- |
-| GET | Allowed | Allowed | Allowed |
+| GET | Assigned courses | Allowed | Allowed |
 | POST | Forbidden | Forbidden | Allowed |
 | PUT | Forbidden | Forbidden | Allowed |
 | DELETE | Forbidden | Forbidden | Allowed |
 
-These rules apply to courses (`/course`), chapters (`/chapter`, required `courseId` query parameter), and lessons (`/lesson`, required `chapterId` query parameter). GET is allowed for all three roles; POST, PUT, and DELETE require ROLE_ADMIN. Swagger UI and `/v3/api-docs` are public.
+These rules apply to courses (`/course`), chapters (`/chapter`, required `courseId` query parameter), and lessons (`/lesson`, required `chapterId` query parameter). Students can read only courses assigned by an administrator, including the chapters, lessons and attachments in those courses. Teachers and admins can read all courses; POST, PUT, and DELETE require ROLE_ADMIN. Swagger UI and `/v3/api-docs` are public.
 
 Check the following cases against the current application port (8080 by default; 8081 if configured):
 
 1. GET `/course` without a token returns 401.
-2. The same request with a student access token returns 200.
+2. The same request with a student access token returns 200 with only assigned courses. Initially the list is empty.
 3. POST `/course` with a valid JSON body and a student token returns 403.
 4. A teacher token allows reading courses, chapters, and lessons. POST, PUT, and DELETE for all three return 403.
 5. An administrator token allows DELETE; existing business rules still apply, including 409 for nonempty courses or chapters.

@@ -25,7 +25,7 @@ public class AttachmentService {
     private final LessonRepository lessonRepository;
     private final AttachmentMapper attachmentMapper;
     private final FileService fileService;
-    private final CourseService courseService;
+    private final CourseAccessService courseAccess;
     private final TransactionTemplate transactionTemplate;
 
     public AttachmentResponse upload(Long lessonId, MultipartFile file, Authentication authentication) {
@@ -38,7 +38,7 @@ public class AttachmentService {
 
         var lesson = lessonRepository.findWithCourseById(lessonId)
                 .orElseThrow(() -> new IllegalArgumentException("Lesson not found"));
-        courseService.checkReadAccess(lesson.getChapter().getCourse().getId(), authentication);
+        courseAccess.checkReadAccess(lesson.getChapter().getCourse().getId(), authentication);
         log.info("Creating new attachment");
         var stored = fileService.upload(file);
         try {
@@ -66,7 +66,7 @@ public class AttachmentService {
     public FileService.Download download(UUID url, Authentication authentication) {
         var attachment = attachmentRepository.findByUrl("/download?url=" + url)
                 .orElseThrow(() -> new IllegalArgumentException("Attachment not found"));
-        courseService.checkReadAccess(attachment.getLesson().getChapter().getCourse().getId(), authentication);
+        courseAccess.checkReadAccess(attachment.getLesson().getChapter().getCourse().getId(), authentication);
         return fileService.download(url);
     }
 }

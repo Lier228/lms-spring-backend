@@ -20,6 +20,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CourseServiceTest {
+    @Mock CourseAccessService access;
     @Mock CourseRepository repository;
     private final CourseMapper mapper = Mappers.getMapper(CourseMapper.class);
     private CourseService service;
@@ -28,7 +29,7 @@ class CourseServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CourseService(repository, mapper);
+        service = new CourseService(access, repository, mapper);
         entity = new Course();
         entity.setId(1L);
         entity.setName("Original");
@@ -117,20 +118,4 @@ class CourseServiceTest {
         var error = assertThrows(ResponseStatusException.class, () -> service.deleteCourse(1L));
         assertEquals(409, error.getStatusCode().value());
     }
-    @Test
-    void courseReadAccessAllowsOnlyTheThreeApplicationRoles() {
-        when(repository.existsById(1L)).thenReturn(true);
-        for (String role : List.of("ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER")) {
-            var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("user", "unused",
-                    List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(role)));
-            assertDoesNotThrow(() -> service.checkReadAccess(1L, auth));
-        }
-        var unknown = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("user", "unused", List.of());
-        assertEquals(403, assertThrows(ResponseStatusException.class, () -> service.checkReadAccess(1L, unknown)).getStatusCode().value());
-        assertEquals(401, assertThrows(ResponseStatusException.class, () -> service.checkReadAccess(1L, null)).getStatusCode().value());
-        var user = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("user", "unused",
-                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")));
-        assertThrows(IllegalArgumentException.class, () -> service.checkReadAccess(99L, user));
-    }
-
 }

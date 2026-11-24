@@ -20,6 +20,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChapterServiceTest {
+    @Mock CourseAccessService access;
     @Mock ChapterRepository repository;
     @Mock CourseRepository parentRepository;
     Course parent;
@@ -30,7 +31,7 @@ class ChapterServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ChapterService(repository, parentRepository, mapper);
+        service = new ChapterService(access, repository, parentRepository, mapper);
         entity = new Chapter();
         entity.setId(1L);
         entity.setName("Original");

@@ -23,19 +23,22 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class LessonService {
     private final LessonMapper lessonMapper;
+    private final CourseAccessService access;
     private final LessonRepository lessonRepository;
     private final ChapterRepository chapterRepository;
 
     @Transactional(readOnly = true)
     public Page<LessonResponse> getAll(Pageable pageable) {
-        return lessonRepository.findAll(pageable).map(lessonMapper::toResponse);
+        String readerId = access.restrictedReaderId();
+        var page = readerId == null ? lessonRepository.findAll(pageable) : lessonRepository.findAssigned(readerId, pageable);
+        return page.map(lessonMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
     public Page<LessonResponse> getAllByChapterId(Long chapterId, Pageable pageable) {
-        if (!chapterRepository.existsById(chapterId)) {
-            throw new IllegalArgumentException("Chapter not found");
-        }
+        var chapter = chapterRepository.findById(chapterId)
+                .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
+        access.checkReadAccess(chapter.getCourse().getId());
 
         return lessonRepository
                 .findAllByChapterId(chapterId,pageable)
@@ -47,6 +50,7 @@ public class LessonService {
         Lesson lesson = lessonRepository.findByIdAndChapterId(lessonId, chapterId)
                 .orElseThrow(() -> new IllegalArgumentException("Lesson not found"));
 
+        access.checkReadAccess(lesson.getChapter().getCourse().getId());
         return lessonMapper.toResponse(lesson);
     }
 

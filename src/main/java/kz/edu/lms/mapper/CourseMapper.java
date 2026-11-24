@@ -11,6 +11,7 @@ import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface CourseMapper {
+    @Mapping(target = "readerIds", ignore = true)
     Course toEntity(CourseCreateRequest request);
 
     CourseResponse toResponse(Course course);

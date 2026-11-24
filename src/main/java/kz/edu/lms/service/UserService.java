@@ -164,6 +164,17 @@ public class UserService {
         }
     }
 
+    public void requireExistingUser(String userId) {
+        try {
+            authorizedClient().get().uri("/users/{id}", userId).retrieve().toBodilessEntity();
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().value() == 404) throw new IllegalArgumentException("User not found");
+            throw unavailable();
+        } catch (RestClientException exception) {
+            throw unavailable();
+        }
+    }
+
     private RestClient authorizedClient() {
         return adminClient.mutate().defaultHeaders(headers -> headers.setBearerAuth(adminToken())).build();
     }

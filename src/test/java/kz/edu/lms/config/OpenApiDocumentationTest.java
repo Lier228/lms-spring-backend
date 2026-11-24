@@ -35,9 +35,10 @@ class OpenApiDocumentationTest {
             "org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration",
             "org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration"
     })
-    @Import({AttachmentController.class, UserController.class, AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
+    @Import({CourseAccessController.class, AttachmentController.class, UserController.class, AuthController.class, CourseController.class, ChapterController.class, LessonController.class,
             GlobalExceptionHandler.class, OpenApiConfig.class, SecurityConfig.class})
     static class TestConfig {
+        @Bean CourseAccessService courseAccessService() { return mock(CourseAccessService.class); }
         @Bean AttachmentService attachmentService() { return mock(AttachmentService.class); }
         @Bean UserService userService() { return mock(UserService.class); }
         @Bean AuthService authService() { return mock(AuthService.class); }
@@ -69,11 +70,11 @@ class OpenApiDocumentationTest {
                 boolean authentication = java.util.Set.of("Log in", "Refresh tokens").contains(entry.getValue().get("summary"));
                 if (!authentication) assertTrue(responses.containsKey("403"));
                 String success = entry.getKey().equals("post") && !authentication ? "201" : entry.getKey().equals("delete") ? "204" : "200";
-                if (java.util.Set.of("Update my profile", "Update my password", "Update user role").contains(entry.getValue().get("summary"))) success = "204";
+                if (java.util.Set.of("Update my profile", "Update my password", "Update user role", "Grant course access").contains(entry.getValue().get("summary"))) success = "204";
                 assertTrue(responses.containsKey(success));
             }
         }
-        assertEquals(23, operations);
+        assertEquals(25, operations);
         assertTrue(paths.containsKey("/upload"));
         assertFalse(paths.containsKey("/file"));
         assertFalse(paths.containsKey("/file/{id}"));

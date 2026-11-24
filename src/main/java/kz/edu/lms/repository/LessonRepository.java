@@ -17,4 +17,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     Page<Lesson> findAllByChapterId(Long chapterId, Pageable pageable);
     Optional<Lesson> findByIdAndChapterId(Long id, Long chapterId);
+
+    @Query("select lesson from Lesson lesson join lesson.chapter.course.readerIds reader where reader = :userId")
+    Page<Lesson> findAssigned(String userId, Pageable pageable);
 }

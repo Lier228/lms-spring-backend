@@ -35,7 +35,7 @@ class AttachmentServiceTest {
     @Mock AttachmentRepository repository;
     @Mock LessonRepository lessons;
     @Mock FileService files;
-    @Mock CourseService courses;
+    @Mock CourseAccessService courses;
     @Mock TransactionTemplate transactions;
     private AttachmentService service;
     private Lesson lesson;

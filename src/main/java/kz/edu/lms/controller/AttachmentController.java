@@ -43,7 +43,7 @@ public class AttachmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(attachmentService.upload(lessonId, file, authentication));
     }
 
-    @Operation(summary = "Download an attachment", description = "Checks access to the lesson course before reading storage. Currently ROLE_USER, ROLE_TEACHER and ROLE_ADMIN can read every course. Use the URL returned by upload.")
+    @Operation(summary = "Download an attachment", description = "Checks access to the lesson course before reading storage. Students need an active assignment to this course. Use the URL returned by upload.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "File content", content = @Content(mediaType = "application/octet-stream", schema = @Schema(type = "string", format = "binary"))),
         @ApiResponse(responseCode = "400", description = "Invalid file ID", content = @Content(schema = @Schema(implementation = ApiError.class))),

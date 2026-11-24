@@ -240,4 +240,14 @@ class UserServiceTest {
         tokens.verify(); admin.verify();
     }
 
+    @Test
+    void unknownEnrollmentTargetReturns404() {
+        expectToken();
+        admin.expect(requestTo(BASE + "/users/missing")).andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND));
+        var error = assertThrows(IllegalArgumentException.class, () -> service.requireExistingUser("missing"));
+        assertEquals("User not found", error.getMessage());
+        tokens.verify();
+        admin.verify();
+    }
 }

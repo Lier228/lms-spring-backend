@@ -20,6 +20,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class LessonServiceTest {
+    @Mock CourseAccessService access;
     @Mock LessonRepository repository;
     @Mock ChapterRepository parentRepository;
     Chapter parent;
@@ -30,7 +31,7 @@ class LessonServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LessonService(mapper, repository, parentRepository);
+        service = new LessonService(mapper, access, repository, parentRepository);
         entity = new Lesson();
         entity.setId(1L);
         entity.setName("Original");
@@ -39,6 +40,9 @@ class LessonServiceTest {
         entity.setUpdatedTime(created);
         parent = new Chapter();
         parent.setId(10L);
+        var course = new Course();
+        course.setId(7L);
+        parent.setCourse(course);
         entity.setChapter(parent);
         entity.setSortOrder(1);
     }
@@ -126,7 +130,7 @@ class LessonServiceTest {
     @Test
     void listsOnlyRequestedParent() {
         var pageable = PageRequest.of(0, 10, Sort.by("sortOrder", "id"));
-        when(parentRepository.existsById(10L)).thenReturn(true);
+        when(parentRepository.findById(10L)).thenReturn(Optional.of(parent));
         when(repository.findAllByChapterId(10L, pageable)).thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
         assertEquals(1L, service.getAllByChapterId(10L, pageable).getContent().getFirst().id());
         verify(repository).findAllByChapterId(10L, pageable);
@@ -135,7 +139,7 @@ class LessonServiceTest {
     @Test
     void existingParentWithNoChildrenReturnsEmptyPage() {
         var pageable = PageRequest.of(0, 10);
-        when(parentRepository.existsById(10L)).thenReturn(true);
+        when(parentRepository.findById(10L)).thenReturn(Optional.of(parent));
         when(repository.findAllByChapterId(10L, pageable)).thenReturn(Page.empty(pageable));
         assertTrue(service.getAllByChapterId(10L, pageable).isEmpty());
     }

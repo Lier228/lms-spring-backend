@@ -22,13 +22,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class ChapterService {
+    private final CourseAccessService access;
     private final ChapterRepository chapterRepository;
     private final CourseRepository courseRepository;
     private final ChapterMapper chapterMapper;
 
     @Transactional(readOnly = true)
     public Page<ChapterResponse> getAllChapters(Pageable pageable) {
-        return chapterRepository.findAll(pageable).map(chapterMapper::toResponse);
+        String readerId = access.restrictedReaderId();
+        var page = readerId == null ? chapterRepository.findAll(pageable) : chapterRepository.findAssigned(readerId, pageable);
+        return page.map(chapterMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
@@ -37,6 +40,7 @@ public class ChapterService {
             throw new IllegalArgumentException("Course not found");
         }
 
+        access.checkReadAccess(courseId);
         return chapterRepository.findAllByCourseId(courseId, pageable).map(chapterMapper::toResponse);
     }
 
@@ -45,6 +49,7 @@ public class ChapterService {
         Chapter chapter = chapterRepository.findByIdAndCourseId(chapterId, courseId)
                 .orElseThrow(() -> new IllegalArgumentException("Chapter not found"));
 
+        access.checkReadAccess(courseId);
         return chapterMapper.toResponse(chapter);
     }
 

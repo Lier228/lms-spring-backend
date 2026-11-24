@@ -342,4 +342,14 @@ class SecurityConfigTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_ADMIN", "ROLE_TEACHER", "ROLE_USER", "NONE"})
+    void onlyAdminCanGrantOrRevokeCourseAccess(String role) throws Exception {
+        String path = "/course/1/access/73426ab8-a5e8-47bf-bb66-1a15608aa858";
+        String jwt = role.equals("NONE") ? null : token(Map.of("roles", List.of(role)));
+        int expected = role.equals("NONE") ? 401 : role.equals("ROLE_ADMIN") ? 204 : 403;
+        for (String method : List.of("PUT", "DELETE")) {
+            assertEquals(expected, request(method, path, jwt).statusCode());
+        }
+    }
 }
